@@ -3,179 +3,322 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Study Timetable</title>
+    <title> Study Timetable</title>
     <style>
+        :root {
+            --bg-color: #f0f2f5;
+            --text-color: #2c3e50;
+            --card-bg: #ffffff;
+            --border-color: #ecf0f1;
+            --primary-color: #3498db;
+            --completed-bg: #e8f8f5;
+            --weekend-color: #e74c3c;
+        }
+
+        .dark-mode {
+            --bg-color: #1a1a1a;
+            --text-color: #ffffff;
+            --card-bg: #2d2d2d;
+            --border-color: #404040;
+            --primary-color: #4a90e2;
+            --completed-bg: #2a3f36;
+            --weekend-color: #ff6666;
+        }
+
         body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
             margin: 0;
             padding: 20px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            flex-direction: column;
+            min-height: 100vh;
+            transition: all 0.3s ease;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            position: relative;
         }
 
         h1 {
             text-align: center;
-            color: #333;
+            margin-bottom: 30px;
         }
 
         .timetable {
-            width: 80%;
-            max-width: 700px;
-            background: #fff;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            transition: all 0.3s ease;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 10px;
         }
 
         th, td {
-            padding: 10px;
+            padding: 15px;
             text-align: left;
-            border-bottom: 1px solid #ddd;
+            border-bottom: 1px solid var(--border-color);
         }
 
         th {
-            background: #007bff;
+            background: var(--primary-color);
             color: white;
+            font-weight: 600;
         }
 
-        .highlight {
-            background-color: #ffeb3b;
+        .current-session {
+            background-color: rgba(74, 144, 226, 0.1) !important;
+            position: relative;
+        }
+
+        .current-session::after {
+            content: "⏳ Now";
+            position: absolute;
+            right: 10px;
+            color: var(--primary-color);
+            font-size: 0.9em;
+        }
+
+        .completed {
+            background-color: var(--completed-bg) !important;
+            text-decoration: line-through;
+            color: #7f8c8d;
         }
 
         .weekend {
-            font-weight: bold;
-            color: #d32f2f;
+            background-color: var(--card-bg);
+            color: var(--weekend-color);
+            font-weight: 600;
+        }
+
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
         }
 
         button {
-            margin-top: 20px;
-            padding: 10px 20px;
-            background: #007bff;
-            color: white;
+            padding: 12px 24px;
             border: none;
-            border-radius: 5px;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 16px;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+
+        .mode-toggle {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 8px 16px;
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .notification-btn {
+            background: #2ecc71;
+            color: white;
+        }
+
+        .reset-btn {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .complete-btn {
+            background: #27ae60;
+            color: white;
+            padding: 6px 12px;
+            font-size: 0.9em;
         }
 
         button:hover {
-            background: #0056b3;
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .time-display {
+            text-align: center;
+            margin: 20px 0;
+            color: #7f8c8d;
+            font-size: 1.2em;
         }
     </style>
 </head>
 <body>
-
-    <h1>Study Timetable</h1>
-    <div class="timetable">
-        <table>
-            <thead>
-                <tr>
-                    <th>Time</th>
-                    <th>Subject</th>
-                </tr>
-            </thead>
-            <tbody id="schedule">
-                <tr><td>9:00 AM - 12:00 PM</td><td>Physics</td></tr>
-                <tr><td>12:30 PM - 3:30 PM</td><td>Chemistry</td></tr>
-                <tr><td>4:00 PM - 6:00 PM</td><td>Extra Work (Previous)</td></tr>
-                <tr><td>7:00 PM - 8:00 PM</td><td>Revision</td></tr>
-                <tr><td>9:00 PM - 12:00 AM</td><td>Math</td></tr>
-                <tr><td>12:00 PM - 2:00 PM</td><td>Revision & Questions</td></tr>
-                <tr class="weekend"><td>Saturday</td><td>Mock Test + Analysis + Revision</td></tr>
-                <tr class="weekend"><td>Sunday</td><td>Mock Test + Analysis + Revision</td></tr>
-            </tbody>
-        </table>
+    <div class="container">
+        <button class="mode-toggle" onclick="toggleDarkMode()">🌓</button>
+        <h1>Smart Study Timetable</h1>
+        <div class="time-display" id="current-time"></div>
+        <div class="timetable">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Subject</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="schedule">
+                    <!-- Dynamic content will be inserted here -->
+                </tbody>
+            </table>
+        </div>
+        <div class="controls">
+            <button class="notification-btn" onclick="requestNotificationPermission()">Enable Notifications</button>
+            <button class="reset-btn" onclick="resetCompletedSessions()">Reset Progress</button>
+        </div>
     </div>
 
-    <button onclick="highlightCurrentTime()">Highlight Current Session</button>
-    <button onclick="requestNotificationPermission()">Enable Notifications</button>
-
     <script>
-        const schedule = [
-            { start: 9, end: 12, subject: "Physics" },
-            { start: 12.5, end: 15.5, subject: "Chemistry" },
-            { start: 16, end: 18, subject: "Extra Work (Previous)" },
-            { start: 19, end: 20, subject: "Revision" },
-            { start: 21, end: 24, subject: "Math" },
-            { start: 12, end: 14, subject: "Revision & Questions" }
-        ];
+        const schedule = {
+            weekday: [
+   
+                { start: 9, end: 12, subject: "Physics", completed: false },
+               { start: 12.5, end: 15.5, subject: "Chemistry", completed: false },
+                { start: 16, end: 18, subject: "Extra Work (Previous)", completed: false },
+                { start: 19, end: 20, subject: "Revision", completed: false },
+                { start: 21, end: 24, subject: "Math", completed: false },
+               { start: 0, end: 2, subject: "Revision & Questions", completed: false }
+       
+            ],
+            weekend: [
+                { subject: "Mock Test + Analysis + Revision", time: "Full Day", completed: false }
+            ]
+        };
 
-        let notifiedSessions = new Set();
+        let currentSchedule = [];
+        let completedSessions = JSON.parse(localStorage.getItem('completedSessions')) || {};
+       let darkMode = localStorage.getItem('darkMode') === 'true';
 
-        function highlightCurrentTime() {
-            const currentHour = new Date().getHours();
-            const scheduleRows = document.querySelectorAll("#schedule tr");
-
-            scheduleRows.forEach(row => row.classList.remove("highlight"));
-
-            for (let i = 0; i < schedule.length; i++) {
-                if (currentHour >= schedule[i].start && currentHour < schedule[i].end) {
-                    scheduleRows[i].classList.add("highlight");
-                    break;
-                }
-            }
+        // Initialize dark mode
+        function initDarkMode() {
+            document.body.classList.toggle('dark-mode', darkMode);
         }
 
-        function requestNotificationPermission() {
-            if ("Notification" in window) {
-                Notification.requestPermission().then(permission => {
-                    if (permission === "granted") {
-                        alert("Notifications Enabled!");
-                        checkTimeForNotification();
+        function toggleDarkMode() {
+            darkMode = !darkMode;
+            localStorage.setItem('darkMode', darkMode);
+            initDarkMode();
+        }
+
+        function formatTime(start, end) {
+            const formatHour = (hour) => {
+                const hours = Math.floor(hour);
+                const minutes = Math.round((hour % 1) * 60);
+                const period = hours >= 12 ? 'PM' : 'AM';
+                const displayHours = hours % 12 || 12;
+                return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
+            };
+            return `${formatHour(start)} - ${formatHour(end)}`;
+        }
+
+        function updateDateTime() {
+            const now = new Date();
+            const options = {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+                second: '2-digit'
+            };
+            document.getElementById('current-time').textContent = 
+                now.toLocaleDateString('en-US', options);
+        }
+
+        function initTimetable() {
+            const now = new Date();
+            const isWeekend = now.getDay() === 6 || now.getDay() === 0;
+            currentSchedule = isWeekend ? schedule.weekend : schedule.weekday;
+            
+            const tbody = document.getElementById('schedule');
+            tbody.innerHTML = '';
+
+            currentSchedule.forEach((session, index) => {
+                const row = document.createElement('tr');
+                const sessionId = isWeekend ? `weekend-${index}` : `weekday-${index}`;
+                const isCompleted = completedSessions[sessionId] || session.completed;
+
+                row.innerHTML = `
+                    <td>${session.time || formatTime(session.start, session.end)}</td>
+                    <td>${session.subject}</td>
+                    <td>
+                        <button class="complete-btn" onclick="toggleCompletion('${sessionId}', this)">
+                            ${isCompleted ? '✓ Completed' : 'Mark Complete'}
+                        </button>
+                    </td>
+                `;
+                
+                if (isCompleted) row.classList.add('completed');
+                if (isWeekend) row.classList.add('weekend');
+                tbody.appendChild(row);
+            });
+
+            updateCurrentSession();
+        }
+
+        function updateCurrentSession() {
+            const now = new Date();
+            const currentHour = now.getHours() + now.getMinutes()/60;
+            const rows = document.querySelectorAll('#schedule tr');
+
+            rows.forEach((row, index) => {
+                row.classList.remove('current-session');
+                if (!currentSchedule[index].time) {
+                    const session = currentSchedule[index];
+                    const isOvernight = session.end < session.start;
+                    
+                    if (isOvernight) {
+                        if (currentHour >= session.start || currentHour < session.end) {
+                            row.classList.add('current-session');
+                        }
                     } else {
-                        alert("You need to allow notifications!");
-                    }
-                });
-            } else {
-                alert("Your browser does not support notifications.");
-            }
-        }
-
-        function showNotification(subject, time) {
-            if (Notification.permission === "granted") {
-                new Notification("Study Reminder!", {
-                    body: `📢 ${time}: It's time for ${subject}. Stay focused!`,
-                    icon: "https://cdn-icons-png.flaticon.com/512/482/482947.png"
-                });
-            }
-        }
-
-        function checkTimeForNotification() {
-            setInterval(() => {
-                const now = new Date();
-                const currentHour = now.getHours();
-                const currentMinutes = now.getMinutes();
-
-                for (let session of schedule) {
-                    const sessionKey = `${session.subject}-${session.start}`;
-
-                    if (
-                        (currentHour === session.start - 1 && currentMinutes === 50) ||
-                        (currentHour === session.start - 1 && currentMinutes === 55) ||
-                        (currentHour === session.start && currentMinutes === 0)
-                    ) {
-                        if (!notifiedSessions.has(sessionKey + currentMinutes)) {
-                            let timeText = currentMinutes === 50 ? "10 minutes before" : currentMinutes === 55 ? "5 minutes before" : "Now";
-                            showNotification(session.subject, timeText);
-                            notifiedSessions.add(sessionKey + currentMinutes);
+                        if (currentHour >= session.start && currentHour < session.end) {
+                            row.classList.add('current-session');
                         }
                     }
                 }
-            }, 60000); // Check every minute
+            });
         }
 
-        highlightCurrentTime();
-    </script>
+        // Notification and completion functions
+        function requestNotificationPermission() {
+            if (Notification.permission !== 'granted') {
+                Notification.requestPermission();
+            }
+        }
 
+        function toggleCompletion(sessionId, button) {
+            completedSessions[sessionId] = !completedSessions[sessionId];
+            localStorage.setItem('completedSessions', JSON.stringify(completedSessions));
+            button.textContent = completedSessions[sessionId] ? '✓ Completed' : 'Mark Complete';
+            button.closest('tr').classList.toggle('completed');
+        }
+
+        function resetCompletedSessions() {
+            completedSessions = {};
+            localStorage.removeItem('completedSessions');
+            initTimetable();
+        }
+
+        // Initialization
+        setInterval(() => {
+            updateDateTime();
+            updateCurrentSession();
+        }, 1000);
+
+        initDarkMode();
+        updateDateTime();
+        initTimetable();
+        requestNotificationPermission();
+    </script>
 </body>
 </html>
