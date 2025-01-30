@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title> Study Timetable</title>
+    <title>Smart Study Timetable</title>
     <style>
         :root {
             --bg-color: #f0f2f5;
@@ -126,16 +126,16 @@
             color: white;
         }
 
-        .reset-btn {
-            background: #e74c3c;
-            color: white;
-        }
-
         .complete-btn {
             background: #27ae60;
             color: white;
             padding: 6px 12px;
             font-size: 0.9em;
+        }
+
+        .complete-btn:disabled {
+            background: #7f8c8d;
+            cursor: not-allowed;
         }
 
         button:hover {
@@ -172,21 +172,18 @@
         </div>
         <div class="controls">
             <button class="notification-btn" onclick="requestNotificationPermission()">Enable Notifications</button>
-            <button class="reset-btn" onclick="resetCompletedSessions()">Reset Progress</button>
         </div>
     </div>
 
     <script>
         const schedule = {
             weekday: [
-   
                 { start: 9, end: 12, subject: "Physics", completed: false },
-               { start: 12.5, end: 15.5, subject: "Chemistry", completed: false },
+                { start: 12.5, end: 15.5, subject: "Chemistry", completed: false },
                 { start: 16, end: 18, subject: "Extra Work (Previous)", completed: false },
                 { start: 19, end: 20, subject: "Revision", completed: false },
                 { start: 21, end: 24, subject: "Math", completed: false },
-               { start: 0, end: 2, subject: "Revision & Questions", completed: false }
-       
+                { start: 0, end: 2, subject: "Revision & Questions", completed: false }
             ],
             weekend: [
                 { subject: "Mock Test + Analysis + Revision", time: "Full Day", completed: false }
@@ -194,10 +191,11 @@
         };
 
         let currentSchedule = [];
+        let currentScheduleType = null;
         let completedSessions = JSON.parse(localStorage.getItem('completedSessions')) || {};
-       let darkMode = localStorage.getItem('darkMode') === 'true';
+        let darkMode = localStorage.getItem('darkMode') === 'true';
+        let sentNotifications = new Set();
 
-        // Initialize dark mode
         function initDarkMode() {
             document.body.classList.toggle('dark-mode', darkMode);
         }
@@ -237,51 +235,95 @@
         function initTimetable() {
             const now = new Date();
             const isWeekend = now.getDay() === 6 || now.getDay() === 0;
-            currentSchedule = isWeekend ? schedule.weekend : schedule.weekday;
             
-            const tbody = document.getElementById('schedule');
-            tbody.innerHTML = '';
-
-            currentSchedule.forEach((session, index) => {
-                const row = document.createElement('tr');
-                const sessionId = isWeekend ? `weekend-${index}` : `weekday-${index}`;
-                const isCompleted = completedSessions[sessionId] || session.completed;
-
-                row.innerHTML = `
-                    <td>${session.time || formatTime(session.start, session.end)}</td>
-                    <td>${session.subject}</td>
-                    <td>
-                        <button class="complete-btn" onclick="toggleCompletion('${sessionId}', this)">
-                            ${isCompleted ? '✓ Completed' : 'Mark Complete'}
-                        </button>
-                    </td>
-                `;
+            if (currentScheduleType !== isWeekend) {
+                currentScheduleType = isWeekend;
+                currentSchedule = isWeekend ? schedule.weekend : schedule.weekday;
                 
-                if (isCompleted) row.classList.add('completed');
-                if (isWeekend) row.classList.add('weekend');
-                tbody.appendChild(row);
-            });
+                const tbody = document.getElementById('schedule');
+                tbody.innerHTML = '';
+
+                currentSchedule.forEach((session, index) => {
+                    const row = document.createElement('tr');
+                    const sessionId = isWeekend ? `weekend-${index}` : `weekday-${index}`;
+                    const isCompleted = completedSessions[sessionId] || session.completed;
+                    const canMark = canMarkComplete(session);
+
+                    row.innerHTML = `
+                        <td>${session.time || formatTime(session.start, session.end)}</td>
+                        <td>${session.subject}</td>
+                        <td>
+                            <button class="complete-btn" 
+                                    onclick="toggleCompletion('${sessionId}', this)" 
+                                    ${!canMark && !isCompleted ? 'disabled' : ''}>
+                                ${isCompleted ? '✓ Completed' : (canMark ? 'Mark Complete' : '🔒 Mark Complete')}
+                            </button>
+                        </td>
+                    `;
+                    
+                    if (isCompleted) row.classList.add('completed');
+                    if (isWeekend) row.classList.add('weekend');
+                    tbody.appendChild(row);
+                });
+            }
 
             updateCurrentSession();
         }
 
+        function canMarkComplete(session) {
+            const now = new Date();
+            
+            if (session.time === 'Full Day') {
+                const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+                return now >= endOfDay;
+            }
+
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const startHour = session.start;
+            const endHour = session.end;
+
+            let endTime;
+            if (endHour >= startHour) {
+                endTime = new Date(today.getTime() + endHour * 60 * 60 * 1000);
+            } else {
+                endTime = new Date(today.getTime() + endHour * 60 * 60 * 1000 + 24 * 60 * 60 * 1000);
+            }
+
+            return now >= endTime;
+        }
+
+        function toggleCompletion(sessionId, button) {
+            const [type, index] = sessionId.split('-');
+            const session = currentSchedule[parseInt(index)];
+
+            if (!canMarkComplete(session)) return;
+
+            completedSessions[sessionId] = !completedSessions[sessionId];
+            localStorage.setItem('completedSessions', JSON.stringify(completedSessions));
+            button.textContent = completedSessions[sessionId] ? '✓ Completed' : 'Mark Complete';
+            button.disabled = completedSessions[sessionId] ? false : !canMarkComplete(session);
+            button.closest('tr').classList.toggle('completed');
+        }
+
         function updateCurrentSession() {
             const now = new Date();
-            const currentHour = now.getHours() + now.getMinutes()/60;
+            const currentHour = now.getHours() + now.getMinutes()/60 + now.getSeconds()/3600;
             const rows = document.querySelectorAll('#schedule tr');
 
             rows.forEach((row, index) => {
                 row.classList.remove('current-session');
-                if (!currentSchedule[index].time) {
-                    const session = currentSchedule[index];
+                const session = currentSchedule[index];
+                if (!session.time) {
                     const isOvernight = session.end < session.start;
-                    
+                    const sessionStart = session.start;
+                    const sessionEnd = session.end;
+
                     if (isOvernight) {
-                        if (currentHour >= session.start || currentHour < session.end) {
+                        if (currentHour >= sessionStart || currentHour < sessionEnd) {
                             row.classList.add('current-session');
                         }
                     } else {
-                        if (currentHour >= session.start && currentHour < session.end) {
+                        if (currentHour >= sessionStart && currentHour < sessionEnd) {
                             row.classList.add('current-session');
                         }
                     }
@@ -289,31 +331,66 @@
             });
         }
 
-        // Notification and completion functions
+        function checkForNotifications() {
+            if (Notification.permission !== 'granted') return;
+
+            const now = new Date();
+            currentSchedule.forEach((session, index) => {
+                const sessionId = currentScheduleType ? `weekend-${index}` : `weekday-${index}`;
+
+                if (session.time === 'Full Day') {
+                    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                    const notificationKey = `full-day-${startOfDay.getTime()}`;
+                    
+                    if (now.getHours() >= 8 && !sentNotifications.has(notificationKey)) {
+                        new Notification('📚 Full Day Session Starting!', {
+                            body: 'Mock Test + Analysis + Revision session starts now!'
+                        });
+                        sentNotifications.add(notificationKey);
+                    }
+                } else {
+                    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                    const start = session.start;
+                    const end = session.end;
+                    const fiveMinutes = 5 * 60 * 1000;
+
+                    // Start time notification
+                    const startTime = new Date(today.getTime() + start * 60 * 60 * 1000);
+                    const startNotifyTime = new Date(startTime - fiveMinutes);
+                    
+                    if (now >= startNotifyTime && now < startTime && !sentNotifications.has(`start-${sessionId}`)) {
+                        new Notification(`⏰ Session Reminder: ${session.subject}`, {
+                            body: `Starts in 5 minutes at ${formatTime(start, end)}`
+                        });
+                        sentNotifications.add(`start-${sessionId}`);
+                    }
+
+                    // End time notification
+                    const endTime = new Date(today.getTime() + (end < start ? end + 24 : end) * 60 * 60 * 1000);
+                    const endNotifyTime = new Date(endTime - fiveMinutes);
+                    
+                    if (now >= endNotifyTime && now < endTime && !sentNotifications.has(`end-${sessionId}`)) {
+                        new Notification(`⏱️ Session Ending Soon: ${session.subject}`, {
+                            body: `Ends in 5 minutes at ${formatTime(start, end)}`
+                        });
+                        sentNotifications.add(`end-${sessionId}`);
+                    }
+                }
+            });
+        }
+
         function requestNotificationPermission() {
-            if (Notification.permission !== 'granted') {
+            if (Notification.permission === 'default') {
                 Notification.requestPermission();
             }
         }
 
-        function toggleCompletion(sessionId, button) {
-            completedSessions[sessionId] = !completedSessions[sessionId];
-            localStorage.setItem('completedSessions', JSON.stringify(completedSessions));
-            button.textContent = completedSessions[sessionId] ? '✓ Completed' : 'Mark Complete';
-            button.closest('tr').classList.toggle('completed');
-        }
-
-        function resetCompletedSessions() {
-            completedSessions = {};
-            localStorage.removeItem('completedSessions');
-            initTimetable();
-        }
-
-        // Initialization
+        // Initialize everything
         setInterval(() => {
             updateDateTime();
-            updateCurrentSession();
-        }, 1000);
+            initTimetable();
+            checkForNotifications();
+        }, 1000);  // Update every second
 
         initDarkMode();
         updateDateTime();
