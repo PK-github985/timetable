@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Study Timetable</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            flex-direction: column;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+
+        .timetable {
+            width: 80%;
+            max-width: 700px;
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background: #007bff;
+            color: white;
+        }
+
+        .highlight {
+            background-color: #ffeb3b;
+        }
+
+        .weekend {
+            font-weight: bold;
+            color: #d32f2f;
+        }
+
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Study Timetable</h1>
+    <div class="timetable">
+        <table>
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Subject</th>
+                </tr>
+            </thead>
+            <tbody id="schedule">
+                <tr><td>9:00 AM - 12:00 PM</td><td>Physics</td></tr>
+                <tr><td>12:30 PM - 3:30 PM</td><td>Chemistry</td></tr>
+                <tr><td>4:00 PM - 6:00 PM</td><td>Extra Work (Previous)</td></tr>
+                <tr><td>7:00 PM - 8:00 PM</td><td>Revision</td></tr>
+                <tr><td>9:00 PM - 12:00 AM</td><td>Math</td></tr>
+                <tr><td>12:00 PM - 2:00 PM</td><td>Revision & Questions</td></tr>
+                <tr class="weekend"><td>Saturday</td><td>Mock Test + Analysis + Revision</td></tr>
+                <tr class="weekend"><td>Sunday</td><td>Mock Test + Analysis + Revision</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <button onclick="highlightCurrentTime()">Highlight Current Session</button>
+    <button onclick="requestNotificationPermission()">Enable Notifications</button>
+
+    <script>
+        const schedule = [
+            { start: 9, end: 12, subject: "Physics" },
+            { start: 12.5, end: 15.5, subject: "Chemistry" },
+            { start: 16, end: 18, subject: "Extra Work (Previous)" },
+            { start: 19, end: 20, subject: "Revision" },
+            { start: 21, end: 24, subject: "Math" },
+            { start: 12, end: 14, subject: "Revision & Questions" }
+        ];
+
+        let notifiedSessions = new Set();
+
+        function highlightCurrentTime() {
+            const currentHour = new Date().getHours();
+            const scheduleRows = document.querySelectorAll("#schedule tr");
+
+            scheduleRows.forEach(row => row.classList.remove("highlight"));
+
+            for (let i = 0; i < schedule.length; i++) {
+                if (currentHour >= schedule[i].start && currentHour < schedule[i].end) {
+                    scheduleRows[i].classList.add("highlight");
+                    break;
+                }
+            }
+        }
+
+        function requestNotificationPermission() {
+            if ("Notification" in window) {
+                Notification.requestPermission().then(permission => {
+                    if (permission === "granted") {
+                        alert("Notifications Enabled!");
+                        checkTimeForNotification();
+                    } else {
+                        alert("You need to allow notifications!");
+                    }
+                });
+            } else {
+                alert("Your browser does not support notifications.");
+            }
+        }
+
+        function showNotification(subject, time) {
+            if (Notification.permission === "granted") {
+                new Notification("Study Reminder!", {
+                    body: `📢 ${time}: It's time for ${subject}. Stay focused!`,
+                    icon: "https://cdn-icons-png.flaticon.com/512/482/482947.png"
+                });
+            }
+        }
+
+        function checkTimeForNotification() {
+            setInterval(() => {
+                const now = new Date();
+                const currentHour = now.getHours();
+                const currentMinutes = now.getMinutes();
+
+                for (let session of schedule) {
+                    const sessionKey = `${session.subject}-${session.start}`;
+
+                    if (
+                        (currentHour === session.start - 1 && currentMinutes === 50) ||
+                        (currentHour === session.start - 1 && currentMinutes === 55) ||
+                        (currentHour === session.start && currentMinutes === 0)
+                    ) {
+                        if (!notifiedSessions.has(sessionKey + currentMinutes)) {
+                            let timeText = currentMinutes === 50 ? "10 minutes before" : currentMinutes === 55 ? "5 minutes before" : "Now";
+                            showNotification(session.subject, timeText);
+                            notifiedSessions.add(sessionKey + currentMinutes);
+                        }
+                    }
+                }
+            }, 60000); // Check every minute
+        }
+
+        highlightCurrentTime();
+    </script>
+
+</body>
+</html>
