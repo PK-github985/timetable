@@ -13,6 +13,7 @@
             --primary-color: #3498db;
             --completed-bg: #e8f8f5;
             --weekend-color: #e74c3c;
+            --break-color: #e74c3c;
         }
 
         .dark-mode {
@@ -23,6 +24,7 @@
             --primary-color: #4a90e2;
             --completed-bg: #2a3f36;
             --weekend-color: #ff6666;
+            --break-color: #ff6666;
         }
 
         body {
@@ -94,6 +96,18 @@
             background-color: var(--card-bg);
             color: var(--weekend-color);
             font-weight: 600;
+        }
+
+        .break-row {
+            animation: pulse 1.5s ease-in-out infinite;
+            color: var(--break-color) !important;
+            font-weight: bold;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.8; }
+            50% { opacity: 1; }
+            100% { opacity: 0.8; }
         }
 
         .controls {
@@ -170,7 +184,6 @@
                 </tbody>
             </table>
         </div>
-       
     </div>
 
     <script>
@@ -206,8 +219,9 @@
 
         function formatTime(start, end) {
             const formatHour = (hour) => {
-                const hours = Math.floor(hour);
-                const minutes = Math.round((hour % 1) * 60);
+                const adjustedHour = hour % 24;
+                const hours = Math.floor(adjustedHour);
+                const minutes = Math.round((adjustedHour % 1) * 60);
                 const period = hours >= 12 ? 'PM' : 'AM';
                 const displayHours = hours % 12 || 12;
                 return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
@@ -230,6 +244,34 @@
                 now.toLocaleDateString('en-US', options);
         }
 
+        function getCurrentHour() {
+            const now = new Date();
+            return now.getHours() + now.getMinutes()/60 + now.getSeconds()/3600;
+        }
+
+        function findActiveBreak() {
+            const currentHour = getCurrentHour();
+            for (let i = 0; i < currentSchedule.length; i++) {
+                const currentSession = currentSchedule[i];
+                const nextSession = currentSchedule[i + 1] || currentSchedule[0];
+                
+                const sessionEnd = currentSession.end;
+                let nextSessionStart = nextSession.start;
+                
+                // Handle overnight breaks
+                if (nextSessionStart < sessionEnd) nextSessionStart += 24;
+                
+                if (currentHour >= sessionEnd && currentHour < nextSessionStart) {
+                    return {
+                        start: sessionEnd,
+                        end: nextSessionStart > 24 ? nextSessionStart - 24 : nextSessionStart,
+                        between: [currentSession.subject, nextSession.subject]
+                    };
+                }
+            }
+            return null;
+        }
+
         function initTimetable() {
             const now = new Date();
             const isWeekend = now.getDay() === 6 || now.getDay() === 0;
@@ -237,40 +279,52 @@
             if (currentScheduleType !== isWeekend) {
                 currentScheduleType = isWeekend;
                 currentSchedule = isWeekend ? schedule.weekend : schedule.weekday;
-                
-                const tbody = document.getElementById('schedule');
-                tbody.innerHTML = '';
-
-                currentSchedule.forEach((session, index) => {
-                    const row = document.createElement('tr');
-                    const sessionId = isWeekend ? `weekend-${index}` : `weekday-${index}`;
-                    const isCompleted = completedSessions[sessionId] || session.completed;
-                    const canMark = canMarkComplete(session);
-
-                    row.innerHTML = `
-                        <td>${session.time || formatTime(session.start, session.end)}</td>
-                        <td>${session.subject}</td>
-                        <td>
-                            <button class="complete-btn" 
-                                    onclick="toggleCompletion('${sessionId}', this)" 
-                                    ${!canMark && !isCompleted ? 'disabled' : ''}>
-                                ${isCompleted ? '✓ Completed' : (canMark ? 'Mark Complete' : '🔒 Mark Complete')}
-                            </button>
-                        </td>
-                    `;
-                    
-                    if (isCompleted) row.classList.add('completed');
-                    if (isWeekend) row.classList.add('weekend');
-                    tbody.appendChild(row);
-                });
             }
+
+            const activeBreak = findActiveBreak();
+            const tbody = document.getElementById('schedule');
+            tbody.innerHTML = '';
+
+            currentSchedule.forEach((session, index) => {
+                // Add study session row
+                const sessionId = isWeekend ? `weekend-${index}` : `weekday-${index}`;
+                const isCompleted = completedSessions[sessionId] || session.completed;
+                const canMark = canMarkComplete(session);
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${session.time || formatTime(session.start, session.end)}</td>
+                    <td>${session.subject}</td>
+                    <td>
+                        <button class="complete-btn" 
+                                onclick="toggleCompletion('${sessionId}', this)" 
+                                ${!canMark && !isCompleted ? 'disabled' : ''}>
+                            ${isCompleted ? '✓ Completed' : (canMark ? 'Mark Complete' : '🔒 Mark Complete')}
+                        </button>
+                    </td>
+                `;
+                if (isCompleted) row.classList.add('completed');
+                if (isWeekend) row.classList.add('weekend');
+                tbody.appendChild(row);
+
+                // Check if break should be inserted after this session
+                if (activeBreak && activeBreak.between[0] === session.subject) {
+                    const breakRow = document.createElement('tr');
+                    breakRow.classList.add('break-row');
+                    breakRow.innerHTML = `
+                        <td>${formatTime(activeBreak.start, activeBreak.end)}</td>
+                        <td>Break Time</td>
+                        <td>🚨 Active Break</td>
+                    `;
+                    tbody.appendChild(breakRow);
+                }
+            });
 
             updateCurrentSession();
         }
 
         function canMarkComplete(session) {
             const now = new Date();
-            
             if (session.time === 'Full Day') {
                 const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
                 return now >= endOfDay;
@@ -304,9 +358,8 @@
         }
 
         function updateCurrentSession() {
-            const now = new Date();
-            const currentHour = now.getHours() + now.getMinutes()/60 + now.getSeconds()/3600;
-            const rows = document.querySelectorAll('#schedule tr');
+            const currentHour = getCurrentHour();
+            const rows = document.querySelectorAll('#schedule tr:not(.break-row)');
 
             rows.forEach((row, index) => {
                 row.classList.remove('current-session');
@@ -352,7 +405,6 @@
                     const end = session.end;
                     const fiveMinutes = 5 * 60 * 1000;
 
-                    // Start time notification
                     const startTime = new Date(today.getTime() + start * 60 * 60 * 1000);
                     const startNotifyTime = new Date(startTime - fiveMinutes);
                     
@@ -363,7 +415,6 @@
                         sentNotifications.add(`start-${sessionId}`);
                     }
 
-                    // End time notification
                     const endTime = new Date(today.getTime() + (end < start ? end + 24 : end) * 60 * 60 * 1000);
                     const endNotifyTime = new Date(endTime - fiveMinutes);
                     
@@ -388,7 +439,7 @@
             updateDateTime();
             initTimetable();
             checkForNotifications();
-        }, 1000);  // Update every second
+        }, 1000);
 
         initDarkMode();
         updateDateTime();
