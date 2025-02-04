@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title> Study Timetable</title>
     <style>
+        /* Previous CSS remains unchanged */
         :root {
             --bg-color: #f0f2f5;
             --text-color: #2c3e50;
@@ -152,6 +153,11 @@
             cursor: not-allowed;
         }
 
+        .reset-btn {
+            background: #e74c3c;
+            color: white;
+        }
+
         button:hover {
             opacity: 0.9;
             transform: translateY(-1px);
@@ -184,9 +190,13 @@
                 </tbody>
             </table>
         </div>
+        <div class="controls">
+            <button class="reset-btn" onclick="resetProgress()">Reset </button>
+        </div>
     </div>
 
     <script>
+        // Previous JavaScript remains unchanged
         const schedule = {
             weekday: [
                 { start: 9, end: 12, subject: "Physics", completed: false },
@@ -215,6 +225,14 @@
             darkMode = !darkMode;
             localStorage.setItem('darkMode', darkMode);
             initDarkMode();
+        }
+
+        function resetProgress() {
+            if (confirm('Are you sure you want to reset all progress?')) {
+                completedSessions = {};
+                localStorage.removeItem('completedSessions');
+                initTimetable();
+            }
         }
 
         function formatTime(start, end) {
@@ -258,7 +276,6 @@
                 const sessionEnd = currentSession.end;
                 let nextSessionStart = nextSession.start;
                 
-                // Handle overnight breaks
                 if (nextSessionStart < sessionEnd) nextSessionStart += 24;
                 
                 if (currentHour >= sessionEnd && currentHour < nextSessionStart) {
@@ -286,7 +303,6 @@
             tbody.innerHTML = '';
 
             currentSchedule.forEach((session, index) => {
-                // Add study session row
                 const sessionId = isWeekend ? `weekend-${index}` : `weekday-${index}`;
                 const isCompleted = completedSessions[sessionId] || session.completed;
                 const canMark = canMarkComplete(session);
@@ -307,14 +323,13 @@
                 if (isWeekend) row.classList.add('weekend');
                 tbody.appendChild(row);
 
-                // Check if break should be inserted after this session
                 if (activeBreak && activeBreak.between[0] === session.subject) {
                     const breakRow = document.createElement('tr');
                     breakRow.classList.add('break-row');
                     breakRow.innerHTML = `
                         <td>${formatTime(activeBreak.start, activeBreak.end)}</td>
                         <td>Break Time</td>
-                        <td>🚨 Active Break</td>
+                        <td>🚨 Active </td>
                     `;
                     tbody.appendChild(breakRow);
                 }
@@ -434,7 +449,6 @@
             }
         }
 
-        // Initialize everything
         setInterval(() => {
             updateDateTime();
             initTimetable();
